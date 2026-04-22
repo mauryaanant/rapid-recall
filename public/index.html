@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapid-Recall | Elite</title>
+    <style>
+        :root { --neon: #00ffcc; --pink: #ff00ff; --gold: #ffd700; --bg: #050505; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        body { background: radial-gradient(circle at center, #151515, #000); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; overflow-x: hidden; }
+        
+        .card { background: rgba(15, 15, 15, 0.85); backdrop-filter: blur(20px); padding: 2.5rem; border-radius: 25px; border: 1px solid rgba(0, 255, 204, 0.15); width: 100%; max-width: 500px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.9); }
+        .hidden { display: none !important; }
+
+        /* Notification Toast System */
+        #toastBox {
+            position: fixed; top: 30px; left: 50%; transform: translateX(-50%) translateY(-30px);
+            background: rgba(0,0,0,0.95); border: 2px solid var(--neon); color: #fff;
+            padding: 15px 40px; border-radius: 50px; z-index: 9999; box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+            font-size: 1.1rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-align: center;
+            opacity: 0; pointer-events: none; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #toastBox.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
+
+        /* Avatars & Inputs */
+        .avatar-grid { display: flex; gap: 12px; justify-content: center; margin: 25px 0; }
+        .avatar-unit { width: 60px; height: 60px; border-radius: 50%; border: 2px solid #333; cursor: pointer; background: #000; font-size: 1.8rem; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 15px rgba(0,0,0,0.8); }
+        .avatar-unit.active { border-color: var(--neon); box-shadow: 0 0 20px rgba(0,255,204,0.4); transform: scale(1.15); }
+
+        .option-picker { display: flex; flex-wrap: wrap; gap: 5px; background: #000; border-radius: 12px; padding: 6px; margin: 15px 0 25px 0; border: 1px solid #222; }
+        .opt-btn { flex: 1; padding: 12px; min-width: 60px; border-radius: 8px; cursor: pointer; background: transparent; border: none; color: #777; font-weight: bold; }
+        .opt-btn.active { background: var(--neon); color: #000; box-shadow: 0 0 15px rgba(0,255,204,0.3); }
+
+        input { width: 100%; padding: 18px; background: #000; border: 1px solid rgba(255, 0, 255, 0.3); color: #fff; border-radius: 12px; text-align: center; font-size: 1.1rem; margin: 6px 0; outline: none; }
+        input:focus { border-color: var(--pink); box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); }
+        .btn-main { background: var(--neon); color: #000; border: none; padding: 20px; cursor: pointer; font-weight: 900; border-radius: 12px; width: 100%; text-transform: uppercase; letter-spacing: 2px; margin-top: 20px; font-size: 1rem; }
+        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 255, 204, 0.3); }
+
+        /* Game specific UI Elements */
+        .header-box { background: rgba(0,0,0,0.8); padding: 20px; border-radius: 15px; border: 1px solid var(--neon); margin-bottom: 20px; display: flex; justify-content: space-around; align-items: center; box-shadow: inset 0 0 20px rgba(0,255,204,0.1); }
+        .timer { font-size: 5rem; color: var(--pink); font-weight: 900; line-height: 1; margin-bottom: 20px; text-shadow: 0 0 20px rgba(255,0,255,0.4); }
+
+        /* Full Screen Overlays */
+        .overlay { position: fixed; inset: 0; background: rgba(5,5,5,0.98); z-index: 2000; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; overflow-y: auto;}
+        
+        /* Verification UI (UX FIXED) */
+        .vote-card { background: rgba(15, 15, 15, 0.95); border: 2px solid var(--gold); padding: 30px; border-radius: 20px; width: 100%; max-width: 500px; margin-bottom: 25px; box-shadow: 0 15px 40px rgba(0,0,0,0.8); }
+        .grid-box { background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; border: 1px solid #333; border-left: 4px solid var(--neon); text-align: left; }
+        .grid-box label { display: block; color: var(--pink); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1.5px; }
+        .grid-box span { display: block; font-size: 1.3rem; color: #fff; font-weight: bold; word-break: break-word; }
+    </style>
+</head>
+<body>
+
+    <div id="toastBox">MESSAGE</div>
+
+    <div style="width: 100%; max-width: 500px;">
+        <div id="scr1" class="card">
+            <h1 style="color:var(--neon); margin:0; font-size: 3rem; letter-spacing: 3px;">RAPID</h1>
+            <p style="margin:0 0 40px 0; color: #888; font-weight: bold; letter-spacing: 8px; font-size: 1.2rem;">RECALL</p>
+            <button class="btn-main" onclick="show(2)">INITIALIZE SECURE LINK</button>
+        </div>
+
+        <div id="scr2" class="card hidden">
+            <p style="color:var(--pink); font-weight: 900; letter-spacing: 2px;">SELECT IDENTITY</p>
+            <div class="avatar-grid">
+                <div class="avatar-unit active" onclick="setAv('🤖', this)">🤖</div>
+                <div class="avatar-unit" onclick="setAv('👻', this)">👻</div>
+                <div class="avatar-unit" onclick="setAv('👽', this)">👽</div>
+                <div class="avatar-unit" onclick="setAv('👾', this)">👾</div>
+                <div class="avatar-unit" onclick="setAv('💀', this)">💀</div>
+            </div>
+            <input id="username" placeholder="AGENT ALIAS" maxlength="12">
+            <input id="rid" placeholder="ROOM FREQUENCY (e.g. 555)" style="margin-top:15px">
+            <button class="btn-main" onclick="show('3A')">HOST SERVER</button>
+            <button class="btn-main" style="background:var(--pink); margin-top:12px" onclick="joinRoom()">SYNC TO ROOM</button>
+        </div>
+
+        <div id="scr3A" class="card hidden">
+            <p style="font-weight: 800; color: #888; letter-spacing: 1px;">SQUAD LIMIT (PLAYERS)</p>
+            <div class="option-picker">
+                <div class="opt-btn active" onclick="setOpt('pLimit', 2, this)">2</div>
+                <div class="opt-btn" onclick="setOpt('pLimit', 3, this)">3</div>
+                <div class="opt-btn" onclick="setOpt('pLimit', 4, this)">4</div>
+                <div class="opt-btn" onclick="setOpt('pLimit', 5, this)">5</div>
+                <div class="opt-btn" onclick="setOpt('pLimit', 6, this)">6</div>
+            </div>
+            <p style="font-weight: 800; color: #888; letter-spacing: 1px;">MISSION DURATION (ROUNDS)</p>
+            <div class="option-picker">
+                <div class="opt-btn active" onclick="setOpt('rounds', 3, this)">3</div>
+                <div class="opt-btn" onclick="setOpt('rounds', 5, this)">5</div>
+                <div class="opt-btn" onclick="setOpt('rounds', 7, this)">7</div>
+                <div class="opt-btn" onclick="setOpt('rounds', 10, this)">10</div>
+            </div>
+            <button class="btn-main" onclick="createRoom()">DEPLOY LOBBY</button>
+        </div>
+
+        <div id="scrGame" class="card hidden">
+            <div id="lobbyUI">
+                <p style="color: #666; font-weight: bold; margin-bottom: 5px;">ROOM FREQUENCY</p>
+                <h2 id="dispID" style="color:var(--neon); font-size: 2.5rem; margin: 0 0 20px 0;">---</h2>
+                <p id="roomStat" style="font-size: 1.1rem;">Awaiting squad synchronization...</p>
+                <button id="readyBtn" class="btn-main" style="background:var(--pink)" onclick="sendReady()">READY UP</button>
+            </div>
+            
+            <div id="playZone" class="hidden">
+                <div class="header-box">
+                    <div>
+                        <span style="color:#888; font-size: 0.9rem; display:block; font-weight:bold;">ROUND</span>
+                        <span id="roundNum" style="color:#fff; font-size: 2rem; font-weight:900;">1</span>
+                    </div>
+                    <div style="width: 2px; height: 40px; background: rgba(255,255,255,0.2);"></div>
+                    <div>
+                        <span style="color:var(--pink); font-size: 0.9rem; display:block; font-weight:bold;">TARGET</span>
+                        <span id="curLet" style="color:var(--neon); font-size: 2.5rem; font-weight:900; line-height:0.8;">?</span>
+                    </div>
+                </div>
+                
+                <div class="timer" id="timer">60</div>
+                <input id="n" placeholder="NAME" autocomplete="off">
+                <input id="p" placeholder="PLACE" autocomplete="off">
+                <input id="a" placeholder="ANIMAL" autocomplete="off">
+                <input id="o" placeholder="OBJECT" autocomplete="off">
+                <button class="btn-main" onclick="manualSubmit()">TRANSMIT DATA</button>
+            </div>
+            
+            <div id="playerList" style="margin-top:25px; font-size:0.9rem; border-top:1px solid #333; padding-top:20px; color: #888; font-weight: bold;"></div>
+        </div>
+    </div>
+
+    <div id="rulesOverlay" class="overlay hidden">
+        <div style="background: rgba(0,0,0,0.95); padding: 50px; border-radius: 30px; border: 2px solid var(--neon); box-shadow: 0 0 80px rgba(0,255,204,0.3); text-align: center; width: 90%; max-width: 450px;">
+            <p style="color:var(--pink); font-size: 1.5rem; font-weight: 900; margin: 0; letter-spacing: 5px;">TARGET LETTER</p>
+            <div id="ruleLet" style="font-size: 10rem; color: var(--neon); font-weight: 900; line-height: 1; margin: 20px 0; text-shadow: 0 0 50px var(--neon);">?</div>
+            <div style="background: #111; padding: 15px 30px; border-radius: 12px; border: 1px solid #333; display: inline-block;">
+                <span style="color: #aaa; font-size: 1.2rem; font-weight: bold; letter-spacing: 1px;">STARTS IN</span>
+                <span id="prepTimer" style="color:var(--pink); font-size: 2.5rem; font-weight: 900; margin-left: 15px; vertical-align: middle;">5</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="voteBox" class="overlay hidden">
+        <h2 style="color:var(--gold); font-size: 2rem; letter-spacing: 3px; margin-bottom: 30px; text-shadow: 0 0 20px rgba(255,215,0,0.5);">VERIFICATION</h2>
+        <div id="voteCardsContainer" style="width: 100%; display: flex; flex-direction: column; align-items: center;"></div>
+    </div>
+
+    <div id="victoryOverlay" class="overlay hidden">
+        <div style="font-size: 8rem; filter: drop-shadow(0 0 30px var(--gold));">🏆</div>
+        <h1 id="winnerName" style="color:var(--neon); font-size: 4rem; margin:10px 0; text-shadow: 0 0 30px var(--neon);">WINNER</h1>
+        <div id="finalScores" style="margin:30px 0; font-size: 1.5rem; font-weight: bold;"></div>
+        <button class="btn-main" style="max-width:250px" onclick="location.reload()">INITIATE NEW MISSION</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let config = { pLimit: 2, rounds: 3, avatar: '🤖' };
+        let timeLeft = 60, timer, prepInterval, toastTimeout;
+
+        // Custom Toast Engine
+        function showToast(msg, color) {
+            const tb = document.getElementById('toastBox');
+            tb.innerText = msg;
+            tb.style.borderColor = color;
+            tb.style.boxShadow = `0 0 30px ${color}`;
+            tb.classList.add('show');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => tb.classList.remove('show'), 3500);
+        }
+
+        function show(id) { document.querySelectorAll('.card, #scr1, #scr2, #scr3A').forEach(c => c.classList.add('hidden')); document.getElementById('scr' + id).classList.remove('hidden'); }
+        function setAv(av, el) { config.avatar = av; document.querySelectorAll('.avatar-unit').forEach(u => u.classList.remove('active')); el.classList.add('active'); }
+        function setOpt(k, v, el) { config[k] = v; el.parentElement.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); }
+
+        function createRoom() {
+            const id = document.getElementById('rid').value;
+            const name = document.getElementById('username').value || "Agent";
+            socket.emit('createRoom', { roomId: id, rounds: config.rounds, maxPlayers: config.pLimit, username: name, avatar: config.avatar });
+            document.getElementById('dispID').innerText = id;
+            show('Game');
+        }
+
+        function joinRoom() {
+            const id = document.getElementById('rid').value;
+            const name = document.getElementById('username').value || "Agent";
+            socket.emit('joinRoom', { roomId: id, username: name, avatar: config.avatar });
+            document.getElementById('dispID').innerText = id;
+            show('Game');
+        }
+
+        function sendReady() { socket.emit('playerReady'); document.getElementById('readyBtn').classList.add('hidden'); document.getElementById('roomStat').innerText = "Status: READY"; }
+
+        socket.on('showRules', ({letter, round}) => {
+            document.getElementById('ruleLet').innerText = letter;
+            document.getElementById('curLet').innerText = letter;
+            document.getElementById('roundNum').innerText = round;
+            
+            document.getElementById('rulesOverlay').classList.remove('hidden');
+            document.getElementById('lobbyUI').classList.add('hidden');
+            document.getElementById('playZone').classList.add('hidden');
+            
+            ['n','p','a','o'].forEach(i => document.getElementById(i).value = "");
+            
+            let prepTime = 5;
+            document.getElementById('prepTimer').innerText = prepTime;
+            clearInterval(prepInterval);
+            prepInterval = setInterval(() => {
+                prepTime--;
+                if(prepTime > 0) document.getElementById('prepTimer').innerText = prepTime;
+                else clearInterval(prepInterval);
+            }, 1000);
+        });
+
+        socket.on('beginInput', () => {
+            document.getElementById('rulesOverlay').classList.add('hidden');
+            document.getElementById('playZone').classList.remove('hidden');
+            timeLeft = 60;
+            clearInterval(timer);
+            timer = setInterval(() => { 
+                timeLeft--; 
+                document.getElementById('timer').innerText = timeLeft; 
+                if(timeLeft <= 0) { autoFinish(); } 
+            }, 1000);
+        });
+
+        function manualSubmit() {
+            const ans = { name: document.getElementById('n').value, place: document.getElementById('p').value, animal: document.getElementById('a').value, object: document.getElementById('o').value };
+            if(Object.values(ans).every(v => v.trim() !== "")) {
+                clearInterval(timer);
+                socket.emit('submitAnswers', { answers: ans, timeUsed: 60 - timeLeft });
+                document.getElementById('playZone').classList.add('hidden');
+                document.getElementById('lobbyUI').classList.remove('hidden');
+                document.getElementById('roomStat').innerText = "DATA UPLOADED. AWAITING SQUAD.";
+            } else {
+                showToast("ALL FIELDS ARE MANDATORY!", "var(--pink)");
+            }
+        }
+
+        function autoFinish() {
+            clearInterval(timer);
+            const ans = { name: document.getElementById('n').value, place: document.getElementById('p').value, animal: document.getElementById('a').value, object: document.getElementById('o').value };
+            
+            const isComplete = Object.values(ans).every(v => v.trim() !== "");
+            if(isComplete) {
+                showToast("TIME EXPIRED! DATA TRANSMITTED.", "var(--neon)");
+            } else {
+                showToast("TIME EXPIRED! INCOMPLETE DATA.", "var(--pink)");
+            }
+
+            // Transmit even if empty. Server handles empty logic and prevents hangs.
+            socket.emit('submitAnswers', { answers: ans, timeUsed: 60 });
+            
+            document.getElementById('playZone').classList.add('hidden');
+            document.getElementById('lobbyUI').classList.remove('hidden');
+            document.getElementById('roomStat').innerText = "PROCESSING RESULTS...";
+        }
+
+        socket.on('voteFeedback', ({ status, points }) => {
+            if (status === 'approved') {
+                showToast(`SQUAD APPROVED: +${Math.floor(points)} PTS`, "var(--neon)");
+            } else {
+                showToast(`SQUAD REJECTED: 0 PTS`, "var(--pink)");
+            }
+        });
+
+        socket.on('startVotingPhase', (submissions) => {
+            const container = document.getElementById('voteCardsContainer');
+            container.innerHTML = "";
+            document.getElementById('voteBox').classList.remove('hidden');
+            
+            // Filter out own submission
+            const cardsToReview = submissions.filter(d => d.from !== socket.id);
+            
+            if (cardsToReview.length === 0) {
+                document.getElementById('voteBox').classList.add('hidden');
+                document.getElementById('roomStat').innerText = "WAITING FOR SQUAD TO VOTE...";
+                return; // Nothing to vote on. Server handles logic.
+            }
+
+            cardsToReview.forEach(d => {
+                const card = document.createElement('div');
+                card.className = 'vote-card';
+                card.innerHTML = `
+                    <h3 style="color:var(--neon); margin:0 0 20px 0; font-size:1.5rem; text-transform:uppercase;">Agent ${d.playerName}</h3>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:25px;">
+                        <div class="grid-box"><label>NAME</label><span>${d.answers.name}</span></div>
+                        <div class="grid-box"><label>PLACE</label><span>${d.answers.place}</span></div>
+                        <div class="grid-box"><label>ANIMAL</label><span>${d.answers.animal}</span></div>
+                        <div class="grid-box"><label>OBJECT</label><span>${d.answers.object}</span></div>
+                    </div>
+                    <div style="display:flex; gap:15px;">
+                        <button class="btn-main" style="margin:0;" onclick="vOut('${d.from}','yes',${d.points},this)">APPROVE (+${Math.floor(d.points)})</button>
+                        <button class="btn-main" style="margin:0; background:var(--pink);" onclick="vOut('${d.from}','no',0,this)">REJECT</button>
+                    </div>`;
+                container.appendChild(card);
+            });
+        });
+
+        function vOut(t, res, p, b) { 
+            socket.emit('voteResult', { targetId: t, vote: res, points: p }); 
+            b.parentElement.parentElement.remove(); 
+            if(!document.getElementById('voteCardsContainer').innerHTML.trim()) {
+                document.getElementById('voteBox').classList.add('hidden');
+                document.getElementById('roomStat').innerText = "VOTES CAST. STANDING BY.";
+            }
+        }
+
+        socket.on('roundEnded', () => { 
+            document.getElementById('voteBox').classList.add('hidden'); 
+            document.getElementById('readyBtn').classList.remove('hidden'); 
+            document.getElementById('readyBtn').style.visibility = 'visible';
+            document.getElementById('roomStat').innerText = "ROUND COMPLETE.";
+        });
+        
+        socket.on('updatePlayers', (list) => { 
+            document.getElementById('playerList').innerHTML = list.map(p => 
+                `<span style="color:#fff; font-size:1.1rem;">${p.avatar} ${p.name}</span>: <span style="color:var(--neon)">${Math.floor(p.score)} PTS</span> ${p.ready ? '✅' : '⏳'}`
+            ).join(' &nbsp;&nbsp;|&nbsp;&nbsp; '); 
+        });
+        
+        socket.on('gameOver', (list) => { 
+            document.getElementById('winnerName').innerText = list[0].name; 
+            document.getElementById('finalScores').innerHTML = list.map(p => 
+                `<div style="margin:10px 0; background:rgba(0,0,0,0.5); padding:15px; border-radius:10px; border:1px solid #333;">
+                    <span style="font-size:1.5rem">${p.avatar}</span> ${p.name}: <span style="color:var(--gold)">${Math.floor(p.score)} PTS</span>
+                </div>`
+            ).join(''); 
+            document.getElementById('victoryOverlay').classList.remove('hidden'); 
+        });
+        
+        socket.on('err', m => showToast(m, "var(--pink)"));
+    </script>
+</body>
+</html>
