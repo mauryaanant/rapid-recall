@@ -7,7 +7,13 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// 1. Try to serve from the public folder
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 2. FOOLPROOF FALLBACK: If GitHub placed index.html in the main folder, use this route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 let rooms = {};
 
@@ -53,11 +59,10 @@ io.on('connection', (socket) => {
         if (players.length === room.playerLimit && players.every(p => p.ready)) {
             if(room.currentRound > room.maxRounds) {
                 io.to(socket.roomId).emit('gameOver', players.sort((a,b) => b.score - a.score));
-                delete rooms[socket.roomId]; // Clean up memory
+                delete rooms[socket.roomId]; 
                 return;
             }
             
-            // Reset Round State
             room.submissions = [];
             room.roundWords = [];
             room.votesReceived = 0;
@@ -81,17 +86,15 @@ io.on('connection', (socket) => {
         if (isComplete) {
             const entries = Object.values(answers).map(v => v.toLowerCase().trim());
             
-            // Check past rounds archive
             if (entries.some(word => room.usedWords.has(word))) {
                 socket.emit('err', 'ARCHIVE COLLISION: Word previously used in this game.');
-                isComplete = false; // Nullify submission
+                isComplete = false; 
             } else {
-                entries.forEach(w => room.roundWords.push(w)); // Temporarily store for this round
+                entries.forEach(w => room.roundWords.push(w)); 
                 points = Math.max(0, 100 - Math.floor(timeUsed * 1.5));
             }
         }
 
-        // Always register the submission so the server doesn't hang
         room.submissions.push({ 
             from: socket.id, 
             playerName: room.players[socket.id].name, 
@@ -99,13 +102,11 @@ io.on('connection', (socket) => {
             points: isComplete ? points : 0 
         });
 
-        // Trigger voting when everyone has checked in
         if (room.submissions.length === room.playerLimit) {
             const validSubmissions = room.submissions.filter(s => s.answers !== null);
             room.votesExpected = validSubmissions.length * (room.playerLimit - 1);
             
             if (room.votesExpected === 0) {
-                // Nobody submitted valid answers. End round instantly.
                 room.currentRound++;
                 Object.values(room.players).forEach(p => p.ready = false);
                 io.to(socket.roomId).emit('updatePlayers', Object.values(room.players));
@@ -120,7 +121,6 @@ io.on('connection', (socket) => {
         const room = rooms[socket.roomId];
         if (!room) return;
         
-        // Instant feedback to the player being voted on
         if (vote === 'yes' && room.players[targetId]) {
             room.players[targetId].score += points;
             io.to(targetId).emit('voteFeedback', { status: 'approved', points });
@@ -130,9 +130,8 @@ io.on('connection', (socket) => {
 
         room.votesReceived++;
         
-        // Once all votes are tallied, move to next round
         if (room.votesReceived >= room.votesExpected) {
-            room.roundWords.forEach(w => room.usedWords.add(w)); // Lock words in archive
+            room.roundWords.forEach(w => room.usedWords.add(w)); 
             room.currentRound++;
             Object.values(room.players).forEach(p => p.ready = false);
             io.to(socket.roomId).emit('updatePlayers', Object.values(room.players));
@@ -141,4 +140,6 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(3000, () => console.log('System Online: http://localhost:3000'));
+// 3. FOOLPROOF PORT: Use Render's environment port if available
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`System Online on port ${PORT}`));
